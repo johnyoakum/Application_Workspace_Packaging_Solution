@@ -1,0 +1,181 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## Installed Applications\n---\n\nWelcome to all the installed applications in your environment..  Here you will find all the installed applcations in a grid for your environment."
+      },
+      "name": "text - 2"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "DeviceInstalledApps_CL \n| summarize by Name_s, Publisher_s, Version_s, IsDeleted_b\n| where IsDeleted_b == false\n| project Name_s, Publisher_s, Version_s\n| order by Name_s asc \n",
+        "size": 0,
+        "title": "All Installed Applications",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "gridSettings": {
+          "rowLimit": 10000,
+          "labelSettings": [
+            {
+              "columnId": "Name_s",
+              "label": "Display Name"
+            },
+            {
+              "columnId": "Publisher_s",
+              "label": "Publisher"
+            },
+            {
+              "columnId": "Version_s",
+              "label": "Version"
+            }
+          ]
+        }
+      },
+      "name": "query - 2"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "DeviceInstalledApps_CL \r\n| where IsDeleted_b == false\r\n| summarize DeviceCount = dcount(DeviceName_s) by Name_s, Publisher_s, Version_s, IsDeleted_b\r\n| project Name_s, Publisher_s, Version_s, DeviceCount\r\n| order by Name_s asc",
+        "size": 0,
+        "title": "Application Install Counts",
+        "timeContext": {
+          "durationMs": 2592000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "gridSettings": {
+          "rowLimit": 10000
+        }
+      },
+      "name": "query - 2"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "title": "Applications Installed per Device",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "Please choose a device from the dropdown.",
+              "style": "info"
+            },
+            "name": "text - 0"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "1c165290-f8e6-42da-ae85-a800c1853919",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "DeviceName",
+                  "type": 2,
+                  "query": "DeviceInstalledApps_CL\r\n| summarize by DeviceName_s\r\n| order by DeviceName_s asc",
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces",
+                  "value": null
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "name": "parameters - 3"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "DeviceInstalledApps_CL\r\n| summarize by Name_s, Publisher_s, Version_s, DeviceName_s, IsDeleted_b\r\n| where DeviceName_s == '{DeviceName}' and IsDeleted_b == false\r\n| project Name_s, Publisher_s, Version_s\r\n| order by Name_s asc",
+              "size": 1,
+              "noDataMessage": "Please choose a device name from above to see results.",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "gridSettings": {
+                "rowLimit": 10000
+              }
+            },
+            "name": "query - 4"
+          }
+        ]
+      },
+      "name": "group - 6"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "title": "Devices with Specific Application",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "Please Choose the an Application Name from the dropdown below.",
+              "style": "info"
+            },
+            "name": "text - 1"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "f8a7b446-50cd-4d57-b3b4-b83df42efd81",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "ApplicationName",
+                  "label": "Application Name",
+                  "type": 2,
+                  "query": "DeviceInstalledApps_CL\r\n| summarize by Name_s, IsDeleted_b\r\n| where IsDeleted_b == false\r\n| project Name_s\r\n| order by Name_s asc",
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces",
+                  "value": null
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "name": "parameters - 0"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "DeviceInstalledApps_CL\r\n| summarize by Name_s, DeviceName_s\r\n| where Name_s == '{ApplicationName}'\r\n| project DeviceName_s\r\n| order by DeviceName_s asc",
+              "size": 1,
+              "noDataMessage": "Please choose an Application Name to see results.",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "name": "query - 2"
+          }
+        ]
+      },
+      "name": "group - 4"
+    }
+  ],
+  "fallbackResourceIds": [
+    "/subscriptions/aea5ad6e-c21e-4786-b724-89beb19febde/resourceGroups/DefaultResourceGroup-WUS2/providers/Microsoft.OperationalInsights/workspaces/InstalledApplications"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
