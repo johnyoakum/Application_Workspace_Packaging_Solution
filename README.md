@@ -1,4 +1,4 @@
-# Application_Workspace_Packaging_Solution
+# Application Workspace Packaging Solution
 This repo is to store my Application Workspace Inventory and Packaging Solution
 
 This poject is a combination way to inventory existing software on machines and then use the Utility to enable those applications in your Application Workspace environment.
