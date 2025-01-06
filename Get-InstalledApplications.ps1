@@ -98,7 +98,7 @@ function Normalize-Version {
 }
 
 # Generate deterministic GUID
-function Generate-DeterministicGUID {
+function Generate-ApplicationGUID {
     param ([string]$Name, [string]$Publisher)
     $inputString = "$Name|$Publisher"
     $hash = [System.Security.Cryptography.HashAlgorithm]::Create("MD5")
@@ -106,6 +106,20 @@ function Generate-DeterministicGUID {
     $hashBytes = $hash.ComputeHash($bytes)
     $guid = [guid]::New([System.BitConverter]::ToString($hashBytes).Replace("-", "").Substring(0, 32))
     return $guid.Guid
+}
+
+function Generate-DeterministicGUID {
+    param (
+        [string]$Name,
+        [string]$Publisher,
+        [string]$DeviceName
+    )
+    # Include DeviceName in the hash input for uniqueness
+    $hashInput = "$Name|$Publisher|$DeviceName"
+    $hashBytes = [System.Text.Encoding]::UTF8.GetBytes($hashInput)
+    $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash($hashBytes)
+    $guid = [guid]::New([System.BitConverter]::ToString($hash).Replace("-", "").Substring(0, 32))
+    return $guid
 }
 
 # Retrieve existing Log Analytics data
@@ -251,7 +265,8 @@ $allApplications = $userApps + $machineApps
 foreach ($app in $allApplications) {
     $app | Add-Member -NotePropertyName NormalizedName -NotePropertyValue (Normalize-Name -Name $app.Name)
     $app | Add-Member -NotePropertyName NormalizedVersion -NotePropertyValue (Normalize-Version -Version $app.Version)
-    $app | Add-Member -NotePropertyName GUID -NotePropertyValue (Generate-DeterministicGUID -Name $app.NormalizedName -Publisher $app.Publisher)
+    $app | Add-Member -NotePropertyName GUID -NotePropertyValue (Generate-DeterministicGUID -Name $app.NormalizedName -Publisher $app.Publisher -DeviceName $env:COMPUTERNAME)
+    $app | Add-Member -NotePropertyName APPGUID -NotePropertyValue (Generate-DeterministicGUID -Name $app.NormalizedName -Publisher $app.Publisher)
     $app | Add-Member -NotePropertyName IsDeleted -NotePropertyValue $false
     $app | Add-Member -NotePropertyName LastUpdated -NotePropertyValue (Get-Date).ToUniversalTime().ToString("o")
 }
@@ -300,7 +315,7 @@ If ($existingAppsHash) {
 # Handle adds
 if ($adds.Count -gt 0) {
     foreach ($add in $adds) {
-        $fileName = "$($add.GUID).json"
+        $fileName = "$($add.AppGUID).json"
         $filePath = Join-Path -Path $folderPath -ChildPath $fileName
         $addJson = $add | ConvertTo-Json -Depth 3
         Set-Content -Path $filePath -Value $addJson -Encoding UTF8
