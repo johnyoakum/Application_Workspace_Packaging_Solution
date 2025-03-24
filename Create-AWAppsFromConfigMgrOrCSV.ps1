@@ -247,8 +247,9 @@ Function Get-Data {
 
     } else {
         $IADevices = Invoke-Sqlcmd -ServerInstance $CMSQLServer -Database $CMDB -Query $DeviceInstalledSoftwareQuery
-        $IAUsers = Invoke-Sqlcmd -ServerInstance $CMSQLServer -Database $CMDB -Query $UserInstalledSoftwareQuery
-
+        Try {
+            $IAUsers = Invoke-Sqlcmd -ServerInstance $CMSQLServer -Database $CMDB -Query $UserInstalledSoftwareQuery
+        } Catch {}
         ForEach ($App in $IADevices) {
             $CurrentApp=$null
             $CurrentApp = New-Object PSObject -prop @{
