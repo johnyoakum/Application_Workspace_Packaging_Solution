@@ -59,6 +59,7 @@ $LiquitConnectorPrefix = "win - " # Replace this with the connector prefix for y
 $LiquitURI = 'https://john.liquit.com' # Replace this with your zone
 $username = 'local\apiaccess' # Replace this with a service account you have created for creating and accessing this information
 $password = 'IsaiahMaddux@2014' # Enter the password for that service Account
+$LiquitConnectorName = "AW Windows App"
 $ClosingTime = 15
 $credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, (ConvertTo-SecureString -String $password -AsPlainText -Force)
 $DeviceInstalledSoftwareQuery = "
@@ -160,47 +161,7 @@ $bannerImage = [convert]::FromBase64String($AWLogo)
 
 #endregion
 #region Functions
-<#
-Function Get-LiquitApps {
 
-    param(
-        [Parameter(Mandatory=$true)]
-        #[System.Collections.ArrayList]$InstalledApps 
-        $InstalledApplications
-    )
-
-    $LiquitApplications = [System.Collections.ArrayList]::new()
-
-    ForEach ($app in $InstalledApps){
-        Write-Verbose "Processing application: $($app.NormalizedName)"
-
-        $LiquitResources = Get-LiquitResource -Connector $LiquitConnector -Name $app.NormalizedName
-
-        If ($LiquitResources.Count -gt 0) {
-            ForEach ($LR in $LiquitResources) {
-                $LiquitPackage = Get-LiquitPackage -Name "$($LiquitConnectorPrefix)$($($LR.Name).Trim())"
-                $Exists = $false
-                If ($LiquitPackage){$Exists = $true}
-                $Application =  New-Object PSObject -Property @{
-                    AWName   = $LR.Name
-                    AWVersion = $LR.Version
-                    AWID = $($LR.ID)
-                    NameSearched = $app.NormalizedName
-                    Exists = $Exists
-                    OriginalApplication = "$($app.DisplayName)"
-                }
-                Write-Host $Application
-                [void]$LiquitApplications.Add($Application)
-            }
-            
-        }
-
-    }
-
-    return $LiquitApplications
-
-}
-#>
 function Normalize-Name {
     param ([string]$Name)
 
@@ -305,10 +266,19 @@ $LiquitConnector = Get-LiquitConnector -type liquitsetupstore | Where-Object {$_
 
 $LiquitApplications = [System.Collections.ArrayList]::new()
 
+# New way to get all applications from AW and store as a variable
+$ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]"$LiquitURI", $credentials)
+$ServiceRoot.Authenticate()
+$Connectors = $ServiceRoot.Connectors.List()
+$SetupStoreConnector = $Connectors | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Name -eq "Liquit Setup Store V2" }
+$parameters = [System.Collections.Generic.Dictionary[string,object]]::new()
+$parameters.Add("`$skip", 0)
+$parameters.Add("`$top", 10000)
+[Liquit.API.Server.V3.Resource[]] $Resources = $SetupStoreConnector.Resources.List($parameters)
+
 ForEach ($app in $InstalledApps){
     Try {
-        $LiquitResources = Get-LiquitResource -Connector $LiquitConnector -Name $($app.NormalizedName)
-        $LiquitResources
+        $LiquitResources = $Resources | Where-Object {$_.Name -like "*$($app.NormalizedName)*"}
     } Catch {}
 
     If ($LiquitResources.Count -gt 0) {
