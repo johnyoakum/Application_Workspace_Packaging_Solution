@@ -49,19 +49,24 @@ if (-not (Get-Module -ListAvailable -Name Liquit.Server.PowerShell)) {
 }
 # Check for powershell Module and install if necessary
 if (-not (Get-Module -ListAvailable -Name SQLPS)) {
-    Install-Module -Name SQLPS -Scope CurrentUser -Force
+    Install-Module -Name SQLServer -Scope CurrentUser -Force
 }
+Import-Module Liquit.Server.Powershell
 
 $ErrorActionPreference = 'Stop'
-$CMSQLServer = 'cm01.corp.viamonstra.com'
-$CMDB = 'cm_jy1'
+
+$CMSQLServer = 'cm01.corp.viamonstra.com' # Replace with your SCCM SQL Server
+$CMDB = 'cm_jy1' # Replace with your SCCM Database Name
 $LiquitConnectorPrefix = "win - " # Replace this with the connector prefix for your environment
 $LiquitURI = 'https://john.liquit.com' # Replace this with your zone
 $username = 'local\apiaccess' # Replace this with a service account you have created for creating and accessing this information
 $password = 'IsaiahMaddux@2014' # Enter the password for that service Account
-$LiquitConnectorName = "AW Windows App"
+$LiquitConnectorName = "Auto-LiquitSetupStore-Demo" # Replace this with the name of your connector
+
 $ClosingTime = 15
+
 $credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, (ConvertTo-SecureString -String $password -AsPlainText -Force)
+
 $DeviceInstalledSoftwareQuery = "
 select distinct arp.publisher0, arp.displayname0, arp.version0
  from v_gs_Add_Remove_programs arp
@@ -238,6 +243,7 @@ Function Get-Data {
 
 #endregion Functions
 #region Main
+
 # Starting Opening Screen
 $XMLReader = (New-Object System.Xml.XMLNodeReader $MainWindow)
 $StartingForm = [Windows.Markup.XamlReader]::Load($XMLReader)
@@ -254,9 +260,8 @@ $StartingForm.Topmost = $true
 $StartingForm.Show()
 
 # Gather Data
-Try {
-    $LogAnalyticsData = Get-Data
-} catch {}
+
+Get-Data
 
 $InstalledApps = $InstalledApps | Sort-Object -Property DisplayName | Get-Unique -AsString
 
@@ -270,29 +275,33 @@ $LiquitApplications = [System.Collections.ArrayList]::new()
 $ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]"$LiquitURI", $credentials)
 $ServiceRoot.Authenticate()
 $Connectors = $ServiceRoot.Connectors.List()
-$SetupStoreConnector = $Connectors | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Name -eq "Liquit Setup Store V2" }
+$SetupStoreConnector = $Connectors | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Name -eq "$LiquitConnectorName" }
 $parameters = [System.Collections.Generic.Dictionary[string,object]]::new()
 $parameters.Add("`$skip", 0)
 $parameters.Add("`$top", 10000)
 [Liquit.API.Server.V3.Resource[]] $Resources = $SetupStoreConnector.Resources.List($parameters)
 
+$InstalledApps = $InstalledApps | Where-Object {-not [string]::IsNullOrEmpty($_.NormalizedName)}
+$AllCurrentPackages = Get-LiquitPackage
+
 ForEach ($app in $InstalledApps){
-    Try {
+
         $LiquitResources = $Resources | Where-Object {$_.Name -like "*$($app.NormalizedName)*"}
-    } Catch {}
 
     If ($LiquitResources.Count -gt 0) {
         ForEach ($LR in $LiquitResources) {
-            $LiquitPackage = Get-LiquitPackage -Name "$($LiquitConnectorPrefix)$($($LR.Name).Trim())"
+            $LiquitPackage = $AllCurrentPackages | Where-Object {$_.Name -eq "$($LiquitConnectorPrefix)$($($LR.Name).Trim())"}
+            
+            #Get-LiquitPackage -Name "$($LiquitConnectorPrefix)$($($LR.Name).Trim())"
             $Exists = $false
             If ($LiquitPackage){$Exists = $true}
             $Application =  New-Object PSObject -Property @{
                 AWName   = $LR.Name
                 AWVersion = $LR.Version.Name
                 AWID = $($LR.ID)
-                NameSearched = $app.NormalizedName
+                NameSearched = $($app.NormalizedName)
                 Exists = $Exists
-                OriginalApplication = "$($app.DisplayName)"
+                OriginalApplication = $($app.DisplayName)
             }
             [void]$LiquitApplications.Add($Application)
         }
