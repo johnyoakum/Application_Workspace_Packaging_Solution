@@ -61,7 +61,6 @@ $LiquitConnectorPrefix = "win - " # Replace this with the connector prefix for y
 $LiquitURI = 'https://john.liquit.com' # Replace this with your zone
 $username = 'local\apiaccess' # Replace this with a service account you have created for creating and accessing this information
 $password = 'IsaiahMaddux@2014' # Enter the password for that service Account
-$LiquitConnectorName = "Auto-LiquitSetupStore-Demo" # Replace this with the name of your connector
 
 $ClosingTime = 15
 
@@ -275,7 +274,7 @@ $LiquitApplications = [System.Collections.ArrayList]::new()
 $ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]"$LiquitURI", $credentials)
 $ServiceRoot.Authenticate()
 $Connectors = $ServiceRoot.Connectors.List()
-$SetupStoreConnector = $Connectors | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Name -eq "$LiquitConnectorName" }
+$SetupStoreConnector = $Connectors | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Prefix -eq $LiquitConnectorPrefix }
 $parameters = [System.Collections.Generic.Dictionary[string,object]]::new()
 $parameters.Add("`$skip", 0)
 $parameters.Add("`$top", 10000)
