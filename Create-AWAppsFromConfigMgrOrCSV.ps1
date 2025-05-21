@@ -270,15 +270,8 @@ $LiquitConnector = Get-LiquitConnector -type liquitsetupstore | Where-Object {$_
 
 $LiquitApplications = [System.Collections.ArrayList]::new()
 
-# New way to get all applications from AW and store as a variable
-$ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]"$LiquitURI", $credentials)
-$ServiceRoot.Authenticate()
-$Connectors = $ServiceRoot.Connectors.List()
-$SetupStoreConnector = $Connectors | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Prefix -eq $LiquitConnectorPrefix }
-$parameters = [System.Collections.Generic.Dictionary[string,object]]::new()
-$parameters.Add("`$skip", 0)
-$parameters.Add("`$top", 10000)
-[Liquit.API.Server.V3.Resource[]] $Resources = $SetupStoreConnector.Resources.List($parameters)
+$Connectors = Get-LiquitConnector | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Prefix -eq $LiquitConnectorPrefix }
+$Resources = $Connectors | Get-LiquitResourcce
 
 $InstalledApps = $InstalledApps | Where-Object {-not [string]::IsNullOrEmpty($_.NormalizedName)}
 $AllCurrentPackages = Get-LiquitPackage
