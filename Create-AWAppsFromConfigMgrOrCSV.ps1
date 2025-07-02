@@ -52,6 +52,7 @@ if (-not (Get-Module -ListAvailable -Name SQLPS)) {
     Install-Module -Name SQLServer -Scope CurrentUser -Force
 }
 Import-Module Liquit.Server.Powershell
+Import-Module SQLServer
 
 $ErrorActionPreference = 'Stop'
 
@@ -271,7 +272,7 @@ $LiquitConnector = Get-LiquitConnector -type liquitsetupstore | Where-Object {$_
 $LiquitApplications = [System.Collections.ArrayList]::new()
 
 $Connectors = Get-LiquitConnector | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Prefix -eq $LiquitConnectorPrefix }
-$Resources = $Connectors | Get-LiquitResourcce
+$Resources = $Connectors | Get-LiquitResource
 
 $InstalledApps = $InstalledApps | Where-Object {-not [string]::IsNullOrEmpty($_.NormalizedName)}
 $AllCurrentPackages = Get-LiquitPackage
