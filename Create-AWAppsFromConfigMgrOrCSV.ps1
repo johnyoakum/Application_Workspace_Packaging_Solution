@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Script to automate creating packages in Application Workspace
 
@@ -51,16 +51,17 @@ if (-not (Get-Module -ListAvailable -Name Liquit.Server.PowerShell)) {
 if (-not (Get-Module -ListAvailable -Name SQLPS)) {
     Install-Module -Name SQLServer -Scope CurrentUser -Force
 }
+
 Import-Module Liquit.Server.Powershell
 Import-Module SQLServer
 
 $ErrorActionPreference = 'Stop'
 
-$CMSQLServer = 'cm01.corp.viamonstra.com' # Replace with your SCCM SQL Server
-$CMDB = 'cm_jy1' # Replace with your SCCM Database Name
+$CMSQLServer = 'demo-mecm.demo.recastsoftware.com' # Replace with your SCCM SQL Server
+$CMDB = 'cm_dm1' # Replace with your SCCM Database Name
 $LiquitConnectorPrefix = "win - " # Replace this with the connector prefix for your environment
-$LiquitURI = 'https://john.liquit.com' # Replace this with your zone
-$username = 'local\apiaccess' # Replace this with a service account you have created for creating and accessing this information
+$LiquitURI = "https://john.recastsoftware.cloud" # Replace this with your zone
+$username = "local\admin" # Replace this with a service account you have created for creating and accessing this information
 $password = 'IsaiahMaddux@2014' # Enter the password for that service Account
 
 $ClosingTime = 15
@@ -212,9 +213,9 @@ Function Get-Data {
         }
 
     } else {
-        $IADevices = Invoke-Sqlcmd -ServerInstance $CMSQLServer -Database $CMDB -Query $DeviceInstalledSoftwareQuery
+        $IADevices = Invoke-Sqlcmd -ServerInstance $CMSQLServer -Database $CMDB -Query $DeviceInstalledSoftwareQuery -trustservercertificate
         Try {
-            $IAUsers = Invoke-Sqlcmd -ServerInstance $CMSQLServer -Database $CMDB -Query $UserInstalledSoftwareQuery
+            $IAUsers = Invoke-Sqlcmd -ServerInstance $CMSQLServer -Database $CMDB -Query $UserInstalledSoftwareQuery -trustservercertificate
         } Catch {}
         ForEach ($App in $IADevices) {
             $CurrentApp=$null
@@ -263,44 +264,53 @@ $StartingForm.Show()
 
 Get-Data
 
-$InstalledApps = $InstalledApps | Sort-Object -Property DisplayName | Get-Unique -AsString
+$InstalledApps = $InstalledApps | Sort-Object -Property DisplayName -Unique
 
-Connect-LiquitWorkspace -URI $LiquitURI -Credential $credentials
-
-$LiquitConnector = Get-LiquitConnector -type liquitsetupstore | Where-Object {$_.Prefix -eq $LiquitConnectorPrefix }
+$ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]$LiquitURI, $credentials)
+$ServiceRoot.Authenticate()
+$Connectors = $ServiceRoot.Connectors.List()
+$SetupStoreConnector = $Connectors | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Prefix -eq $LiquitConnectorPrefix }
+#[Liquit.API.Server.V3.Resource[]]$Resources = $SetupStoreConnector.Resources.List()
+$Resources = @($SetupStoreConnector.Resources.List())
 
 $LiquitApplications = [System.Collections.ArrayList]::new()
 
-$Connectors = Get-LiquitConnector | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Prefix -eq $LiquitConnectorPrefix }
-$Resources = $Connectors | Get-LiquitResource
-
 $InstalledApps = $InstalledApps | Where-Object {-not [string]::IsNullOrEmpty($_.NormalizedName)}
-$AllCurrentPackages = Get-LiquitPackage
+$AllCurrentPackages = $ServiceRoot.Packages.List()
+$InstalledAppsUnique = $InstalledApps| Sort-Object -Property NormalizedName -Unique
 
-ForEach ($app in $InstalledApps){
+# Test section for pre-indexing
+$ResourceLookup = @{}
+foreach ($res in $Resources) {
+    $normalized = Normalize-Name $res.Name
 
-        $LiquitResources = $Resources | Where-Object {$_.Name -like "*$($app.NormalizedName)*"}
-
-    If ($LiquitResources.Count -gt 0) {
-        ForEach ($LR in $LiquitResources) {
-            $LiquitPackage = $AllCurrentPackages | Where-Object {$_.Name -eq "$($LiquitConnectorPrefix)$($($LR.Name).Trim())"}
-            
-            #Get-LiquitPackage -Name "$($LiquitConnectorPrefix)$($($LR.Name).Trim())"
-            $Exists = $false
-            If ($LiquitPackage){$Exists = $true}
-            $Application =  New-Object PSObject -Property @{
-                AWName   = $LR.Name
-                AWVersion = $LR.Version.Name
-                AWID = $($LR.ID)
-                NameSearched = $($app.NormalizedName)
-                Exists = $Exists
-                OriginalApplication = $($app.DisplayName)
-            }
-            [void]$LiquitApplications.Add($Application)
-        }
-            
+    if (-not $ResourceLookup.ContainsKey($normalized)) {
+        $ResourceLookup[$normalized] = [System.Collections.Generic.List[Liquit.API.Server.V3.Resource]]::new()
     }
 
+        $ResourceLookup[$normalized].Add($res)
+}
+
+foreach ($app in $InstalledAppsUnique) {
+    if ($ResourceLookup.ContainsKey($app.NormalizedName)) {
+        $LiquitResources = $ResourceLookup[$app.NormalizedName]
+    }
+    If ($LiquitResources) {
+            ForEach ($LR in $LiquitResources) {
+                $LiquitPackage = $AllCurrentPackages | Where-Object {$_.Name -eq "$($LiquitConnectorPrefix)$($($LR.Name).Trim())"}
+                $Exists = $false
+                If ($LiquitPackage){$Exists = $true}
+                $Application =  New-Object PSObject -Property @{
+                    AWName   = $LR.Name
+                    AWVersion = $LR.Version.Name
+                    AWID = $($LR.ID)
+                    NameSearched = $($app.NormalizedName)
+                    Exists = $Exists
+                    OriginalApplication = $($app.DisplayName)
+                }
+                [void]$LiquitApplications.Add($Application)
+            }
+        }
 }
 
 $MatchedLiquitApps = $LiquitApplications | Sort-Object -Property AWName | Get-Unique -AsString
@@ -374,5 +384,4 @@ $XMLApplicationForm.Close()
 
 
 #endregion
-
 
