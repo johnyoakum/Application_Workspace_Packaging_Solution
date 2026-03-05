@@ -342,6 +342,8 @@ $warning.Visibility = "Hidden"
 $button.Add_Click({
 
     # Do something with the Selected Apps
+    Connect-LiquitWorkspace -URI $LiquitURI -Credential $credentials
+    $LiquitConnector = Get-LiquitConnector -type liquitsetupstore | Where-Object {$_.Prefix -eq $LiquitConnectorPrefix }
         ForEach ( $App in $($MatchedLiquitApps | Where-Object { $_.CreateApp -eq $true }) ){
             $LiquitApp = Get-LiquitResource -Connector $LiquitConnector -ID $app.AWID
             Import-LiquitPackage -Resource $LiquitApp -Publish Production -Type Default -IgnoreMissingDependencies | Out-Null
@@ -384,4 +386,5 @@ $XMLApplicationForm.Close()
 
 
 #endregion
+
 
