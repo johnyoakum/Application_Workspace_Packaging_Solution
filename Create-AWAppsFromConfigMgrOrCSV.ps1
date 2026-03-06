@@ -11,7 +11,20 @@
         5.	Modify Packages
         6.	Remove Packages
         7.	View Resources
+.REQUIRED READING
+    -You have to use a specific version of the Powershell Commandlet for this to work correctly. I have tested this with multiple versions
+        and the one that I found that works correctly is version 4.3.3893.3880. So, my recommendation is to pre-install the two powershell
+        modules that are required for this to run correctly and please remove any newer versions of the Liquit.Server.Powershell module and
+        only use the version listed above. You can install the powershell module by running the following command:
 
+        Install-Module Liquit.Server.Powershell -RequiredVersion 4.3.3893.3880
+
+        This will install the correct module version for this script to run a lot smoother.
+        The other module you need is the SQL Server module and you can install it via the following command:
+
+        Install-Module SQLServer
+
+        I have reported the bug and the devs will be looking into it.
 .DESCRIPTION
     This script can perform dual functions, it can either read your currently installed software directly from your configMgr database
         or you can supply it a csv file formatted as "Publisher0, DisplayName0, Version0" with those being the header rows.
@@ -43,6 +56,7 @@ param (
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName PresentationFramework
 
+<#
 # Check for powershell Module and install if necessary
 if (-not (Get-Module -ListAvailable -Name Liquit.Server.PowerShell)) {
     Install-Module -Name Liquit.Server.PowerShell -Scope CurrentUser -Force
@@ -51,6 +65,7 @@ if (-not (Get-Module -ListAvailable -Name Liquit.Server.PowerShell)) {
 if (-not (Get-Module -ListAvailable -Name SQLPS)) {
     Install-Module -Name SQLServer -Scope CurrentUser -Force
 }
+#>
 
 Import-Module Liquit.Server.Powershell
 Import-Module SQLServer
@@ -256,7 +271,7 @@ $Title = $StartingForm.FindName('Main')
 $MainImage.Source = $bannerImage
 $Title.Icon = $iconImage
 $Startingform.WindowStartupLocation = [System.Windows.Forms.FormStartPosition]::CenterScreen
-$StartingForm.Topmost = $true
+#$StartingForm.Topmost = $true
 
 $StartingForm.Show()
 
@@ -266,29 +281,38 @@ Get-Data
 
 $InstalledApps = $InstalledApps | Sort-Object -Property DisplayName -Unique
 
+Connect-LiquitWorkspace -URI $LiquitURI -Credential $credentials
+$SetupStoreConnector = Get-LiquitConnector -Type liquitsetupstore | Where-Object {$_.Prefix -eq $LiquitConnectorPrefix }
+$Resources = Get-LiquitResource -Connector $SetupStoreConnector
+
+<#
 $ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]$LiquitURI, $credentials)
 $ServiceRoot.Authenticate()
 $Connectors = $ServiceRoot.Connectors.List()
 $SetupStoreConnector = $Connectors | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Prefix -eq $LiquitConnectorPrefix }
 #[Liquit.API.Server.V3.Resource[]]$Resources = $SetupStoreConnector.Resources.List()
 $Resources = @($SetupStoreConnector.Resources.List())
+#>
 
 $LiquitApplications = [System.Collections.ArrayList]::new()
 
 $InstalledApps = $InstalledApps | Where-Object {-not [string]::IsNullOrEmpty($_.NormalizedName)}
-$AllCurrentPackages = $ServiceRoot.Packages.List()
+$AllCurrentPackages = Get-LiquitPackage
+#$AllCurrentPackages = $ServiceRoot.Packages.List()
 $InstalledAppsUnique = $InstalledApps| Sort-Object -Property NormalizedName -Unique
 
 # Test section for pre-indexing
 $ResourceLookup = @{}
+
 foreach ($res in $Resources) {
+
     $normalized = Normalize-Name $res.Name
 
     if (-not $ResourceLookup.ContainsKey($normalized)) {
-        $ResourceLookup[$normalized] = [System.Collections.Generic.List[Liquit.API.Server.V3.Resource]]::new()
+        $ResourceLookup[$normalized] = [System.Collections.Generic.List[object]]::new()
     }
 
-        $ResourceLookup[$normalized].Add($res)
+    $ResourceLookup[$normalized].Add($res)
 }
 
 foreach ($app in $InstalledAppsUnique) {
@@ -386,5 +410,4 @@ $XMLApplicationForm.Close()
 
 
 #endregion
-
 
