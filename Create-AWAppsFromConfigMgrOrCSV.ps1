@@ -281,18 +281,19 @@ Get-Data
 
 $InstalledApps = $InstalledApps | Sort-Object -Property DisplayName -Unique
 
-<#
+
 Connect-LiquitWorkspace -URI $LiquitURI -Credential $credentials
+<#
 $SetupStoreConnector = Get-LiquitConnector -Type liquitsetupstore | Where-Object {$_.Prefix -eq $LiquitConnectorPrefix }
 $Resources = Get-LiquitResource -Connector $SetupStoreConnector
 #>
 
-$Connector = Get-LiquitConnector -type liquitsetupstore | Where-Object {$_.Prefix -eq $Prefix }
+#$Connector = Get-LiquitConnector -type liquitsetupstore | Where-Object {$_.Prefix -eq $Prefix }
 $AWApps = [System.Collections.ArrayList]::new()
-$ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]"$LiquitURL", $credentials)
+$ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]$LiquitURI, $credentials)
 $ServiceRoot.Authenticate()
 $Connectors = $ServiceRoot.Connectors.List()
-$SetupStoreConnector = $Connectors | Where-Object { $_.Name -eq "Managed Windows Apps" }
+$SetupStoreConnector = $Connectors | Where-Object { $_.Prefix -eq $LiquitConnectorPrefix }
 $parameters = [System.Collections.Generic.Dictionary[string,object]]::new()
 $skip = 0
 $top = 1000
@@ -301,7 +302,7 @@ while ($top -le 5000) {
     # Set/overwrite parameters safely
     $parameters.Add("`$skip", $skip)
     $parameters.Add("`$top", $top)
-    write-Host "Skip: $skip , Top: $top"
+    write-Host "Pulling apps $skip to $top"
     $Resources = $SetupStoreConnector.Resources.List($parameters)
 
     # Stop if API returned no results
@@ -361,7 +362,7 @@ foreach ($app in $InstalledAppsUnique) {
                 If ($LiquitPackage){$Exists = $true}
                 $Application =  New-Object PSObject -Property @{
                     AWName   = $LR.Name
-                    AWVersion = $LR.Version.Name
+                    AWVersion = $LR.Version
                     AWID = $($LR.ID)
                     NameSearched = $($app.NormalizedName)
                     Exists = $Exists
@@ -405,6 +406,7 @@ $button.Add_Click({
     $LiquitConnector = Get-LiquitConnector -type liquitsetupstore | Where-Object {$_.Prefix -eq $LiquitConnectorPrefix }
         ForEach ( $App in $($MatchedLiquitApps | Where-Object { $_.CreateApp -eq $true }) ){
             $LiquitApp = Get-LiquitResource -Connector $LiquitConnector -ID $app.AWID
+            Write-Host "Importing $($LiquitApp.Name)"
             Import-LiquitPackage -Resource $LiquitApp -Publish Production -Type Default -IgnoreMissingDependencies | Out-Null
         }
     $warning.Text = "We have processed your request, shutting down in 30 seconds."
@@ -445,4 +447,3 @@ $XMLApplicationForm.Close()
 
 
 #endregion
-
