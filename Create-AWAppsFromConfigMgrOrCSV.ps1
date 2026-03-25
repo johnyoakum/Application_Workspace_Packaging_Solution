@@ -281,18 +281,53 @@ Get-Data
 
 $InstalledApps = $InstalledApps | Sort-Object -Property DisplayName -Unique
 
+<#
 Connect-LiquitWorkspace -URI $LiquitURI -Credential $credentials
 $SetupStoreConnector = Get-LiquitConnector -Type liquitsetupstore | Where-Object {$_.Prefix -eq $LiquitConnectorPrefix }
 $Resources = Get-LiquitResource -Connector $SetupStoreConnector
+#>
 
-<#
-$ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]$LiquitURI, $credentials)
+$Connector = Get-LiquitConnector -type liquitsetupstore | Where-Object {$_.Prefix -eq $Prefix }
+$AWApps = [System.Collections.ArrayList]::new()
+$ServiceRoot = New-Object Liquit.API.Server.V3.ServiceRoot([uri]"$LiquitURL", $credentials)
 $ServiceRoot.Authenticate()
 $Connectors = $ServiceRoot.Connectors.List()
-$SetupStoreConnector = $Connectors | Where-Object { $_.Type -eq "liquitsetupstore" -and $_.Prefix -eq $LiquitConnectorPrefix }
-#[Liquit.API.Server.V3.Resource[]]$Resources = $SetupStoreConnector.Resources.List()
-$Resources = @($SetupStoreConnector.Resources.List())
-#>
+$SetupStoreConnector = $Connectors | Where-Object { $_.Name -eq "Managed Windows Apps" }
+$parameters = [System.Collections.Generic.Dictionary[string,object]]::new()
+$skip = 0
+$top = 1000
+
+while ($top -le 5000) {
+    # Set/overwrite parameters safely
+    $parameters.Add("`$skip", $skip)
+    $parameters.Add("`$top", $top)
+    write-Host "Skip: $skip , Top: $top"
+    $Resources = $SetupStoreConnector.Resources.List($parameters)
+
+    # Stop if API returned no results
+    if (-not $Resources -or $Resources.Count -eq 0) {
+        break
+    }
+
+    ForEach ($Resource in $Resources) {
+        $CurrentApp = New-Object PSObject -Property @{
+            Name       = $($Resource.Name)
+            Type       = $($Resource.Type)
+            Version    = $($Resource.Version.Name)
+            LastUpdate = $($Resource.Version.Created)
+            State      = $($Resource.State)
+            ID         = $($Resource.ID)
+        }
+        [void]$AWApps.Add($CurrentApp)
+    }
+
+    # Advance counters as you requested
+    $skip += 1000
+    $top  += 1000
+    $parameters.Clear()
+}
+
+$Resources = $AWApps | Sort-Object -Property Name -Unique
 
 $LiquitApplications = [System.Collections.ArrayList]::new()
 
